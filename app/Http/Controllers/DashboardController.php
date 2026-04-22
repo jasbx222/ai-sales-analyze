@@ -2,52 +2,75 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
 use App\Models\Client;
 use App\Models\ClientAnalysis;
 use App\Models\Interaction;
+use Illuminate\Http\Request;
+use Inertia\Inertia;
 
 class DashboardController extends Controller
 {
-    public function stats(Request $request)
+    public function index(Request $request)
     {
         $user = $request->user();
 
-        // Total analyses performed by this user (or all if user is an admin, assuming role based)
-        // From Stitch layout: Total Analysis and Clients count
-        $totalAnalyses = ClientAnalysis::whereHas('interaction', function($q) use ($user) {
+        // Stats
+        $totalAnalyses = ClientAnalysis::whereHas('interaction', function ($q) use ($user) {
             $q->where('user_id', $user->id);
         })->count();
 
-        // Unique clients user has interacted with, or total clients (if clients are global, but let's assume they are shared or user-specific)
-        $totalClients = Client::count(); // Keeping it global for now, or filter by user interactions
+        $totalClients = Client::count();
 
-        // Recent activity: get the latest 5 interactions with analysis
+        // Recent activity
         $recentInteractions = Interaction::with(['client', 'analysis'])
             ->where('user_id', $user->id)
             ->latest()
             ->take(5)
-            ->get();
+            ->get()
+            ->map(function ($interaction) {
+                $hasAnalysis = ! is_null($interaction->analysis);
 
-        return response()->json([
-            'data' => [
+                return [
+                    'id' => $interaction->id,
+                    'client_name' => $interaction->client->name,
+                    'type' => $hasAnalysis ? 'analysis_completed' : 'interaction_added',
+                    'title' => $hasAnalysis
+                        ? "تم تحليل ملاحظة \"{$interaction->client->name}\""
+                        : "تحديث بيانات \"{$interaction->client->name}\"",
+                    'time_ago' => $interaction->created_at->diffForHumans(),
+                    'by' => $hasAnalysis ? 'بواسطة النظام' : $interaction->user->name,
+                ];
+            });
+
+        $pendingFollowUps = Client::whereHas('interactions', function ($q) {
+            $q->where('id', function ($sub) {
+                $sub->selectRaw('max(id)')
+                    ->from('interactions')
+                    ->whereColumn('client_id', 'clients.id');
+            })->whereHas('analysis', function ($sub) {
+                $sub->where('buying_probability', '>', 80);
+            });
+        })->where(function ($q) {
+            $q->whereNull('last_emailed_at')
+                ->orWhere('last_emailed_at', '<', now()->subDays(7));
+        })->count();
+
+        return Inertia::render('dashboard', [
+            'stats' => [
                 'total_analyses' => $totalAnalyses,
                 'total_clients' => $totalClients,
-                'monthly_target_percentage' => 85, // Mock value as per Stitch design
-                'recent_activity' => $recentInteractions->map(function($interaction) {
-                    $hasAnalysis = !is_null($interaction->analysis);
-                    return [
-                        'id' => $interaction->id,
-                        'client_name' => $interaction->client->name,
-                        'type' => $hasAnalysis ? 'analysis_completed' : 'interaction_added',
-                        'title' => $hasAnalysis 
-                            ? "تم تحليل ملاحظة \"{$interaction->client->name}\"" 
-                            : "تحديث بيانات \"{$interaction->client->name}\"",
-                        'time_ago' => $interaction->created_at->diffForHumans(),
-                        'by' => $hasAnalysis ? 'بواسطة النظام' : $interaction->user->name
-                    ];
-                })
-            ]
+                'pending_follow_ups' => $pendingFollowUps,
+                'monthly_target_percentage' => 85, // Mapped from design
+            ],
+            'recent_activity' => $recentInteractions,
+        ]);
+    }
+
+    public function stats(Request $request)
+    {
+        // This can still be used for polling/updates if needed
+        return response()->json([
+            'data' => $this->index($request)->props['stats'],
         ]);
     }
 }

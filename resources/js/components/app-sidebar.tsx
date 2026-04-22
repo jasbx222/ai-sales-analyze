@@ -4,25 +4,35 @@ import { NavUser } from '@/components/nav-user';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 import { type NavItem } from '@/types';
 import { Link } from '@inertiajs/react';
-import { BookOpen, Folder, LayoutGrid } from 'lucide-react';
+import { BookOpen, Brain, Folder, LayoutGrid, Users } from 'lucide-react';
 import AppLogo from './app-logo';
 
 const mainNavItems: NavItem[] = [
     {
-        title: 'Dashboard',
+        title: 'الرئيسية',
         url: '/dashboard',
         icon: LayoutGrid,
+    },
+    {
+        title: 'العملاء',
+        url: '/clients',
+        icon: Users,
+    },
+    {
+        title: 'المتابعة الذكية',
+        url: '/clients?filter=follow-up',
+        icon: Brain,
     },
 ];
 
 const footerNavItems: NavItem[] = [
     {
-        title: 'Repository',
+        title: 'المستودع',
         url: 'https://github.com/laravel/react-starter-kit',
         icon: Folder,
     },
     {
-        title: 'Documentation',
+        title: 'التوثيق',
         url: 'https://laravel.com/docs/starter-kits',
         icon: BookOpen,
     },
@@ -30,7 +40,7 @@ const footerNavItems: NavItem[] = [
 
 export function AppSidebar() {
     return (
-        <Sidebar collapsible="icon" variant="inset">
+        <Sidebar collapsible="icon" variant="inset" side="right">
             <SidebarHeader>
                 <SidebarMenu>
                     <SidebarMenuItem>
