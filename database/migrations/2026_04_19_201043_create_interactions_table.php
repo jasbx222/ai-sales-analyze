@@ -18,7 +18,7 @@ return new class extends Migration
             $table->string('product_type');
             $table->string('interaction_context')->nullable();
             $table->string('interaction_stage')->nullable();
-            $table->text('note');
+            $table->text('note')->nullable();
             $table->timestamps();
         });
     }

@@ -2,15 +2,22 @@
 
 namespace App\Ai\Agents;
 
+use App\Ai\Tools\PrepareConversationText;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
+use Laravel\Ai\Attributes\MaxSteps;
+use Laravel\Ai\Attributes\MaxTokens;
+use Laravel\Ai\Attributes\Provider;
+use Laravel\Ai\Attributes\UseCheapestModel;
 use Laravel\Ai\Contracts\Agent;
 use Laravel\Ai\Contracts\HasStructuredOutput;
+use Laravel\Ai\Contracts\HasTools;
 use Laravel\Ai\Promptable;
 
-use Laravel\Ai\Attributes\Provider;
-
 #[Provider('gemini')]
-class SalesClientAnalysisAgent implements Agent, HasStructuredOutput
+#[UseCheapestModel]
+#[MaxTokens(1200)]
+#[MaxSteps(3)]
+class SalesClientAnalysisAgent implements Agent, HasStructuredOutput, HasTools
 {
     use Promptable;
 
@@ -18,12 +25,25 @@ class SalesClientAnalysisAgent implements Agent, HasStructuredOutput
     {
         return <<<EOF
 أنت خبير مبيعات محترف جداً (Elite Sales Strategist).
-مهمتك تحليل بيانات العميل واستنتاج حالته النفسية، ومستوى اهتمامه، وتقديم أفضل استراتيجية ورسالة للإغلاق.
+
+مهمتك تحليل نص محادثة بين عميل ومندوب مبيعات بعد استخراجه من الصور، ثم استنتاج:
+- شخصية العميل
+- مستوى اهتمامه
+- درجة حساسيته للسعر
+- مستوى الثقة
+- الاعتراض الرئيسي
+- أفضل استراتيجية للإغلاق
+- أفضل رسالة متابعة
+
 قواعد صارمة:
+
+- اذكر بوضوح في notes أن البيانات غير كافية
+- لا تملأ الفراغات بتخمينات
 1. لا تخترع معلومات غير موجودة.
 2. لا تبالغ في الثقة.
-3. فكّر دائماً بمنطق: "ما الذي يمنع العميل من الشراء الآن، وكيف نزيد فرصة الإغلاق؟"
-4. يجب أن يكون ردك حصراً بصيغة JSON وفق الهيكلية المطلوبة بوضوح وبدون أي نص إضافي أو مقدمات.
+3. إذا كانت البيانات غير كافية، اذكر ذلك داخل الحقول المناسبة بشكل واضح.
+4. فكّر دائماً بمنطق: ما الذي يمنع العميل من الشراء الآن، وكيف نزيد فرصة الإغلاق؟
+5. يجب أن يكون الرد حصراً بصيغة JSON مطابقة للهيكلية المطلوبة، بدون أي نص إضافي.
 EOF;
     }
 
@@ -46,4 +66,13 @@ EOF;
             'notes' => $schema->string()->description('ملاحظات إضافية')->required(),
         ];
     }
+
+    public function tools(): iterable
+    {
+        return [
+            // new PrepareConversationText(),
+        ];
+    }
+
+    
 }

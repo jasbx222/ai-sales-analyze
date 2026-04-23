@@ -68,9 +68,34 @@ class DashboardController extends Controller
 
     public function stats(Request $request)
     {
-        // This can still be used for polling/updates if needed
+        $user = $request->user();
+
+        $totalAnalyses = ClientAnalysis::whereHas('interaction', function ($q) use ($user) {
+            $q->where('user_id', $user->id);
+        })->count();
+
+        $totalClients = Client::count();
+
+        $pendingFollowUps = Client::whereHas('interactions', function ($q) {
+            $q->where('id', function ($sub) {
+                $sub->selectRaw('max(id)')
+                    ->from('interactions')
+                    ->whereColumn('client_id', 'clients.id');
+            })->whereHas('analysis', function ($sub) {
+                $sub->where('buying_probability', '>', 80);
+            });
+        })->where(function ($q) {
+            $q->whereNull('last_emailed_at')
+                ->orWhere('last_emailed_at', '<', now()->subDays(7));
+        })->count();
+
         return response()->json([
-            'data' => $this->index($request)->props['stats'],
+            'data' => [
+                'total_analyses' => $totalAnalyses,
+                'total_clients' => $totalClients,
+                'pending_follow_ups' => $pendingFollowUps,
+                'monthly_target_percentage' => 85,
+            ],
         ]);
     }
 }
